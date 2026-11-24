@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cluehouse</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: a detective's desk. Quiet slate ground, one case-file paper surface, and two player colours (teal and raspberry) that mean "player 1" and "player 2" everywhere. */
+:root{
+  --bg:#EDF0F5; --surface:#FFFFFF; --surface-2:#E4E9F1; --fg:#17202E; --muted:#58657A; --line:#CBD3DF;
+  --p1:#0E7C86; --p2:#B83A63; --gold:#8F6210; --good:#1B7F47; --bad:#B42318; --on-accent:#FFFFFF; --ad:#DEE3EC;
+  --font-d:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --font-b:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-m:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141C; --surface:#171E29; --surface-2:#1F2836; --fg:#E6EBF3; --muted:#98A5BA; --line:#2C3748;
+    --p1:#3CC4CF; --p2:#F07AA0; --gold:#E5B454; --good:#4CC380; --bad:#F1766B; --on-accent:#08141A; --ad:#1B2433;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141C; --surface:#171E29; --surface-2:#1F2836; --fg:#E6EBF3; --muted:#98A5BA; --line:#2C3748;
+  --p1:#3CC4CF; --p2:#F07AA0; --gold:#E5B454; --good:#4CC380; --bad:#F1766B; --on-accent:#08141A; --ad:#1B2433;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg); font:400 16px/1.55 var(--font-b);
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.shell{max-width:980px; margin:0 auto; padding-block:20px 56px; display:flex; flex-direction:column; gap:20px}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--p1); outline-offset:2px}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+
+/* header */
+.top{display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center; justify-content:space-between}
+.brand{display:flex; align-items:center; gap:10px; font:700 1.55rem var(--font-d); letter-spacing:-.02em; text-decoration:none}
+.brand svg{width:26px; height:26px; color:var(--p1)}
+#nav{display:flex; flex-wrap:wrap; gap:4px}
+#nav a{padding:8px 13px; border-radius:999px; color:var(--muted); text-decoration:none; font-weight:500; font-size:.95rem}
+#nav a:hover{color:var(--fg)}
+#nav a[aria-current="page"]{background:var(--fg); color:var(--bg)}
+
+/* scoreboard */
+.bar{display:flex; flex-wrap:wrap; gap:10px}
+.score{display:flex; align-items:baseline; gap:10px; padding:7px 14px; border-radius:999px; background:var(--surface); border:1.5px solid var(--line); font-size:.92rem}
+.score b{font-weight:700}
+.score span{font-variant-numeric:tabular-nums; color:var(--muted)}
+.score i{width:10px; height:10px; border-radius:50%; align-self:center; background:var(--muted)}
+.score.p1 i{background:var(--p1)} .score.p2 i{background:var(--p2)}
+.score.on.p1{border-color:var(--p1)} .score.on.p2{border-color:var(--p2)} .score.on.team{border-color:var(--fg)}
+.stat{margin-left:auto; color:var(--muted); font-size:.9rem; align-self:center}
+
+/* type */
+h1,h2,h3{font-family:var(--font-d); letter-spacing:-.02em; text-wrap:balance; margin:0}
+.hero h1{font-size:clamp(2.1rem,6.4vw,3.6rem); line-height:1.04; font-weight:700; letter-spacing:-.035em; margin-bottom:14px}
+.hero p, .lede{max-width:58ch; color:var(--muted); margin:0; font-size:1.05rem}
+.hero .eyebrow{margin-bottom:10px}
+h2{font-size:1.6rem; line-height:1.15}
+h3{font-size:1.05rem}
+.eyebrow{font:500 .75rem var(--font-m); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.muted{color:var(--muted)}
+
+/* surfaces */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; min-width:0}
+.stack{display:flex; flex-direction:column; gap:16px}
+.row{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:14px}
+.tile{display:flex; flex-direction:column; gap:6px; text-align:left; text-decoration:none; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px; cursor:pointer; color:inherit; font:inherit; min-width:0}
+.tile:hover{border-color:var(--fg)}
+.tile h3{font-size:1.25rem}
+.tile p{margin:0; color:var(--muted); font-size:.93rem}
+.tile .eyebrow{color:var(--p1)}
+
+/* controls */
+.btn{font:600 .95rem var(--font-b); padding:10px 18px; min-height:44px; border-radius:10px; border:1.5px solid var(--line); background:var(--surface); color:var(--fg); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px}
+.btn:hover{border-color:var(--fg)}
+.btn.primary{background:var(--p1); border-color:var(--p1); color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn.small{min-height:36px; padding:6px 12px; font-size:.88rem}
+.btn:disabled{opacity:.45; cursor:default}
+input[type=text],input[type=number]{font:inherit; min-height:44px; min-width:0; padding:10px 14px; border:1.5px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg)}
+input:focus{border-color:var(--p1); outline:none}
+.pills{display:flex; flex-wrap:wrap; gap:8px}
+.pill{font:500 .9rem var(--font-b); padding:7px 14px; border-radius:999px; border:1.5px solid var(--line); background:transparent; color:var(--fg); cursor:pointer; min-height:38px}
+.pill[aria-pressed="true"]{background:var(--fg); color:var(--bg); border-color:var(--fg)}
+.field{display:flex; flex-direction:column; gap:6px; min-width:0; flex:1 1 180px}
+.field label{font-size:.82rem; color:var(--muted); font-weight:500}
+.modes{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px}
+.mode{display:flex; flex-direction:column; gap:2px; text-align:left; padding:12px 14px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); color:var(--fg); cursor:pointer; font:inherit}
+.mode b{font-weight:700}
+.mode span{font-size:.86rem; color:var(--muted)}
+.mode[aria-pressed="true"]{border-color:var(--p1); background:var(--surface)}
+
+/* puzzle */
+.puzzle{display:flex; flex-direction:column; gap:16px}
+.meta{display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center}
+.tag{font:500 .72rem var(--font-m); letter-spacing:.08em; text-transform:uppercase; padding:4px 9px; border-radius:6px; background:var(--surface-2)}
+.diff{font:500 .8rem var(--font-m); color:var(--gold); letter-spacing:.1em}
+.who{margin-left:auto; font-weight:700; font-size:.9rem}
+.who.p1{color:var(--p1)} .who.p2{color:var(--p2)}
+.q{font:600 clamp(1.2rem,3.4vw,1.55rem)/1.3 var(--font-d); letter-spacing:-.01em; margin:0; text-wrap:pretty}
+.code{font:500 1.15rem/1.5 var(--font-m); letter-spacing:.06em; background:var(--surface-2); padding:12px 14px; border-radius:10px; white-space:pre-wrap; overflow-wrap:anywhere}
+.ans{display:flex; flex-wrap:wrap; gap:10px}
+.ans input{flex:1 1 220px}
+.msg{min-height:1.4em; font-weight:600}
+.msg.good{color:var(--good)} .msg.bad{color:var(--bad)} .msg.info{color:var(--muted)}
+.hintlist{margin:0; padding-left:1.2em; color:var(--muted)}
+.hintlist li+li{margin-top:4px}
+.after{display:flex; flex-direction:column; gap:12px; padding-top:4px; border-top:1px dashed var(--line)}
+.reveal{background:var(--surface-2); border-radius:10px; padding:12px 14px}
+.reveal .eyebrow{display:block; margin-bottom:4px}
+
+/* case files */
+.casehead{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between}
+.dots{display:flex; gap:6px}
+.dots i{width:12px; height:12px; border-radius:50%; border:2px solid var(--line)}
+.dots i.done{background:var(--p1); border-color:var(--p1)} .dots i.now{border-color:var(--fg)}
+.casegrid{display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:16px; align-items:start}
+.scene{font:400 .93rem/1.65 var(--font-m); background:var(--surface-2); border:1px dashed var(--line); border-radius:12px; padding:16px 18px; white-space:pre-wrap}
+.notebook{position:sticky; top:12px}
+.notebook ol{margin:10px 0 0; padding-left:1.2em; font-size:.92rem}
+.notebook li+li{margin-top:10px}
+.cases{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px}
+
+/* ads */
+.ad{display:flex; flex-direction:column; gap:4px}
+.ad small{font:500 .68rem var(--font-m); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.ad-box{min-height:90px; display:grid; place-items:center; text-align:center; padding:8px; border:1px dashed var(--line); border-radius:10px; background:var(--ad); color:var(--muted); font-size:.82rem}
+.ad.rect .ad-box{min-height:250px}
+.foot{color:var(--muted); font-size:.85rem; max-width:70ch}
+
+.bignum{font:700 3rem/1 var(--font-d); letter-spacing:-.03em; font-variant-numeric:tabular-nums}
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px}
+
+@media (max-width:760px){
+  .casegrid{grid-template-columns:minmax(0,1fr)}
+  .notebook{position:static}
+  .stat{margin-left:0; width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+[hidden]{display:none!important}
+:root{color-scheme:light}
+</style>
+
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="#home" data-nav="home">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="13" r="4.2" fill="currentColor"/><path d="M13.6 16.5h4.8l1.6 8h-8z" fill="currentColor"/></svg>
+      Cluehouse
+    </a>
+    <nav id="nav" aria-label="Main">
+      <a href="#home" data-nav="home">Home</a>
+      <a href="#quick" data-nav="quick">Quick riddles</a>
+      <a href="#cases" data-nav="cases">Case files</a>
+      <a href="#vault" data-nav="vault">Puzzle vault</a>
+      <a href="#daily" data-nav="daily">Daily</a>
+    </nav>
+  </header>
+  <div id="bar" class="bar" aria-live="polite"></div>
+  <main id="view" tabindex="-1"></main>
+  <footer class="foot">Cluehouse is a riddle and mystery game for one or two players. Progress, streaks and names are kept in this browser only.</footer>
+</div>
+<script>
+(function(){
+/* ---------- content: hand-written riddles ---------- */
+/* [category, difficulty 1-3, question, accepted answers, hints, optional explanation] */
+const RIDDLES = [
+  ["Classic",1,"I speak without a mouth and hear without ears. I have no body, but I come alive with the wind. What am I?",["echo","an echo"],["Shout into a canyon and you will meet me."]],
+  ["Classic",1,"What has keys but cannot open a single lock?",["piano","keyboard","a piano","a keyboard"],["Musicians and typists both use me."]],
+  ["Classic",1,"What has hands but cannot clap?",["clock","a clock","watch","a watch"],["Look at me to learn the hour."]],
+  ["Classic",1,"The more of me you take, the more you leave behind. What am I?",["footsteps","steps","footprints","a footstep"],["You make me when you walk."]],
+  ["Classic",2,"What gets wetter the more it dries?",["towel","a towel"],["It hangs in the bathroom."]],
+  ["Classic",1,"What has a neck but no head?",["bottle","a bottle","shirt"],["You pour from me."]],
+  ["Classic",2,"What can travel around the world while staying in a corner?",["stamp","a stamp","postage stamp"],["Think about letters and postcards."]],
+  ["Classic",2,"What has a heart that does not beat?",["artichoke","an artichoke"],["It is a vegetable."]],
+  ["Classic",1,"What has many teeth but cannot bite?",["comb","a comb","zip","zipper"],["You use me on your hair."]],
+  ["Classic",2,"What goes up but never comes back down?",["age","your age","my age"],["Everyone's number does it once a year."]],
+  ["Classic",2,"What begins with T, ends with T, and is full of T?",["teapot","a teapot"],["A kettle's cousin."],"A teapot starts with T, ends with T, and is full of tea."],
+  ["Classic",2,"I am light as a feather, yet the strongest person cannot hold me for more than a few minutes. What am I?",["breath","your breath","my breath","a breath"],["You do it all day without noticing."]],
+  ["Classic",1,"What has one eye but cannot see?",["needle","a needle"],["It is used with thread."]],
+  ["Classic",2,"What is full of holes but still holds water?",["sponge","a sponge"],["Look near the kitchen sink."]],
+  ["Classic",2,"What can you catch but never throw?",["cold","a cold"],["Winter brings it."]],
+  ["Classic",1,"What runs but never walks, and has a mouth but never talks?",["river","a river"],["It flows to the sea."]],
+  ["Classic",1,"What has legs but cannot walk?",["table","a table","chair","a chair","bed","desk"],["You probably sit near one."]],
+  ["Classic",2,"What kind of band never plays music?",["rubber band","a rubber band","rubber"],["It stretches."]],
+  ["Classic",2,"What has to be broken before you can use it?",["egg","an egg"],["Think breakfast."]],
+  ["Classic",2,"What building has the most stories?",["library","a library"],["Think books, not floors."]],
+  ["Classic",1,"What invention lets you look right through a wall?",["window","a window"],["It is made of glass."]],
+  ["Wordplay",2,"I am a word of letters three. Add two letters and fewer there will be. What word am I?",["few"],["Add the letters E and R."],"FEW plus ER makes FEWER."],
+  ["Wordplay",2,"What starts with an E, ends with an E, but usually holds only one letter?",["envelope","an envelope"],["It carries mail."]],
+  ["Wordplay",2,"Which word in the dictionary is spelled incorrectly?",["incorrectly","incorrect"],["Read the question again, slowly."],"The word is INCORRECTLY. It is spelled 'incorrectly'."],
+  ["Wordplay",2,"What four-letter word can be written forwards, backwards or upside down and still read the same?",["noon"],["Think of midday."]],
+  ["Wordplay",3,"What English word has three double letters in a row?",["bookkeeper","bookkeeping"],["A person who keeps the accounts."],"BOOKKEEPER: oo, kk, ee."],
+  ["Wordplay",2,"What contains 26 letters but has only three syllables?",["alphabet","the alphabet"],["You learned me before you could read."]],
+  ["Wordplay",2,"What is always in front of you but cannot be seen?",["future","the future"],["It has not happened yet."]],
+  ["Wordplay",2,"What is so fragile that saying its name breaks it?",["silence"],["Shh."]],
+  ["Wordplay",3,"What letter appears in the middle of March and April, but not at the start or end of either month?",["r","the letter r","letter r"],["Look at how each month is spelled."]],
+  ["Logic",2,"A man pushes his car to a hotel and tells the owner he is bankrupt. Why?",["monopoly","playing monopoly","he is playing monopoly"],["He is not really bankrupt. He is playing something."],"He is playing Monopoly."],
+  ["Logic",2,"Forward I am heavy, backward I am not. What am I?",["ton"],["Think of weight."],"TON backwards is NOT."],
+  ["Logic",3,"A farmer has 17 sheep. All but 9 run away. How many are left?",["9","nine"],["Read it word by word: all BUT nine."],"All but 9 run away, so 9 stay."],
+  ["Logic",2,"How many months of the year have 28 days?",["12","twelve","all","all of them"],["Do not think only about February."],"Every month has at least 28 days."],
+  ["Logic",3,"If you have me, you want to share me. If you share me, you no longer have me. What am I?",["secret","a secret"],["Whispering helps."]],
+  ["Logic",3,"Two fathers and two sons go fishing and catch one fish each, but only three fish are caught. How?",["grandfather","a grandfather","three people","3 people","three men"],["Count the people, not the roles."],"There are only three people: a grandfather, his son, and his grandson."],
+  ["Logic",3,"A rooster lays an egg on the very peak of a barn roof. Which way does the egg roll?",["neither","none","nowhere","roosters dont lay eggs"],["Who lays eggs?"],"Roosters do not lay eggs."],
+  ["Logic",3,"What gets bigger the more you take away from it?",["hole","a hole"],["Try digging."]],
+  ["Logic",2,"What question can you never answer with yes?",["are you asleep","are you asleep yet","are you sleeping","asleep"],["It is about sleep."]],
+  ["Math",1,"What comes next? 2, 4, 8, 16, ...",["32"],["Each number is double the one before."]],
+  ["Math",2,"I am an odd number. Take away one letter and I become even. What number am I?",["seven","7"],["Spell me out."],"SEVEN without the S is EVEN."],
+  ["Math",3,"A bat and a ball cost $1.10 together. The bat costs $1.00 more than the ball. How many cents does the ball cost?",["5","five","5 cents","five cents","0.05"],["It is not 10.","Call the ball x. Then x + (x + 100) = 110."],"The ball costs 5 cents and the bat costs $1.05."],
+  ["Math",2,"What is half of two plus two?",["3","three"],["Do the half first."]],
+  ["Math",2,"How many times can you subtract 5 from 25?",["once","one","1","one time"],["After the first time it is no longer 25."]],
+  ["Math",3,"Which is heavier: a kilogram of feathers or a kilogram of iron?",["same","neither","they weigh the same","equal"],["Look at the unit."]],
+  ["Nature",1,"I am tall when I am young and short when I am old. What am I?",["candle","a candle"],["Light me and watch."]],
+  ["Nature",2,"What has roots nobody sees, is taller than trees, and up and up it goes, yet never grows?",["mountain","a mountain"],["Climbers know it well."]],
+  ["Nature",2,"I have cities but no houses, mountains but no trees, and water but no fish. What am I?",["map","a map"],["You can fold me."]],
+  ["Nature",2,"I follow you all day but disappear at night. What am I?",["shadow","your shadow","a shadow"],["Stand in the sun and look down."]],
+  ["Nature",2,"What grows when it eats but dies when it drinks?",["fire","a fire"],["It is warm and bright."]],
+  ["Lateral",3,"A man lives on the 20th floor. Each morning he rides the lift to the ground. Coming home he rides to the 10th floor and walks the rest, unless it is raining. Why?",["short","too short","umbrella","he cant reach the button"],["Think about the buttons.","What could he use on a rainy day?"],"He is too short to reach the top buttons, but on rainy days his umbrella reaches them."],
+  ["Lateral",3,"A woman shoots her husband, holds him underwater for five minutes, and then hangs him. Later they enjoy dinner together. How?",["photograph","photographer","photo","she is a photographer"],["Think of a photographer's darkroom."],"She took his photograph, developed it in water, and hung it up to dry."],
+  ["Lateral",2,"What can you hold in your right hand but never in your left?",["left hand","your left hand","my left hand","left elbow","your left elbow"],["Read the question again."]],
+  ["Lateral",3,"A truck driver goes the wrong way down a one-way street, passes several police officers, and is not stopped. Why?",["walking","on foot","he was walking","not driving"],["Is he really driving?"],"He was walking, not driving."],
+  ["Couples",2,"It can be given but never sold, kept but never held, and broken without being dropped. What is it?",["promise","a promise","vow","a vow"],["Weddings are full of them."]],
+  ["Couples",2,"What do you give before you get it, and keep after you give it away?",["word","your word","my word","a word"],["Honesty matters here."]],
+  ["Couples",3,"What grows stronger the more two people share it, and breaks when one of them hides things?",["trust","love","communication"],["It is what couples build slowly."]],
+  ["Couples",1,"What can be cracked, made, told, and played?",["joke","a joke"],["Laughter follows."]]
+];
+
+/* ---------- content: story mysteries ---------- */
+const CASES = [
+  {
+    id:"keeper", title:"The Keeper Who Vanished", level:"Easy", diff:1,
+    blurb:"Marrow Point lighthouse went dark at midnight, and its keeper, Ada Vance, is missing.",
+    intro:"Midnight. The beam at Marrow Point has gone out for the first time in forty years. Ships are circling in the dark, and the keeper, Ada Vance, is nowhere to be found.\n\nYou climb the spiral stairs to the lamp room with a torch and a notebook.",
+    steps:[
+      {scene:"The lamp room is cold. On the keeper's desk lies her logbook. The last entry is one line in Ada's tidy handwriting.",
+       q:"The entry says: 'Look at what has hands but cannot clap.' What is Ada pointing you to?",
+       a:["clock","a clock","watch","a watch"], h:["It hangs on a wall and you read it every day."],
+       x:"A clock has hands but cannot clap.",
+       clue:"The wall clock above the stove stopped at 3:15. Behind it is a small wall safe with a three-digit dial."},
+      {scene:"The safe's dial takes three digits. A sticky note on the clock case reads: 'Hour first, then the minutes. Nothing else.'",
+       q:"What is the three-digit code, using the time the clock stopped?",
+       a:["315"], h:["The clock stopped at 3:15.","Write the hour, then the minutes, with no colon."],
+       x:"3:15 becomes 315.",
+       clue:"The safe opens. Inside are a torn chart of the coast and a coded note."},
+      {scene:"Ada's sister once told you Ada loved old naval codes. In a simple shift code, every letter of the message is pushed three places forward in the alphabet.",
+       q:"Decode the note. Where is the key?", code:"KHU NHB LV XQGHU WKH EHDFRQ",
+       a:["under the beacon","beacon","the beacon"], h:["Move each letter back three places, so K becomes H.","The first word is HER."],
+       x:"HER KEY IS UNDER THE BEACON.",
+       clue:"Under the great lamp you find a brass key and a postcard from Port Lorne: 'Ada, come quickly. The oil receipts are forged. Do not trust the man who signs for the lamp oil.'"},
+      {scene:"Three people were on the jetty when the lamp died: Captain Rhee, Inspector Fell and Baker Moss. Exactly one of them switched off the lamp. Exactly one of the three statements below is true.",
+       q:"Who switched off the lamp?", code:"Captain Rhee: \"Moss did it.\"\nInspector Fell: \"It was not me.\"\nBaker Moss: \"It was not me.\"",
+       a:["fell","inspector fell"], h:["Test each suspect: assume they did it, then count how many statements come out true.","You need exactly one true statement."],
+       x:"If Fell did it, only Moss tells the truth. Any other suspect makes two statements true.",
+       clue:"Inspector Fell is the man who signs for the lamp oil."}
+    ],
+    outro:"Inspector Fell had been skimming the lamp-oil budget for years. When Ada found the forged receipts, he cut the lamp and hoped the dark would hide it. The postcard led you to Ada, safe at her sister's, and the beam at Marrow Point burns again."
+  },
+  {
+    id:"train", title:"The 11:40 to Harrowgate", level:"Medium", diff:2,
+    blurb:"A pearl necklace vanishes from a first-class carriage. The thief is still on board.",
+    intro:"The night train is an hour from Harrowgate when Lady Wren raises the alarm: her pearl necklace is gone. The doors are locked until the next station, which means the thief is still on board.\n\nThe conductor hands you a torn ticket stub and asks for your help.",
+    steps:[
+      {scene:"Scribbled across the ticket stub is a column of numbers and a note: 'The compartment number is next in line.'",
+       q:"What number comes next?", code:"2, 6, 12, 20, 30, ?",
+       a:["42"], h:["Look at the gaps between numbers: 4, 6, 8, 10.","The gaps grow by 2 each time."],
+       x:"The gaps are 4, 6, 8, 10 and then 12, so 30 + 12 = 42.",
+       clue:"Compartment 42. A brass plate on the door reads: Reserved for Miss E. Wren."},
+      {scene:"Inside compartment 42 a locked hatbox sits under the seat. The luggage tag reads: 'Say my name and I will open.'",
+       q:"The tag's riddle: what can you catch but never throw?",
+       a:["cold","a cold"], h:["You might get one in winter."],
+       x:"You can catch a cold, but you cannot throw it.",
+       clue:"The hatbox clicks open. Inside lie a handkerchief monogrammed E.W. and a card covered in numbers."},
+      {scene:"The card reads 5-4-9-20-8. Each number is a letter's place in the alphabet, where A is 1, B is 2, and so on.",
+       q:"Whose first name is hidden in the numbers?", code:"5-4-9-20-8",
+       a:["edith"], h:["The 5th letter of the alphabet is E.","The monogram on the handkerchief is E.W."],
+       x:"5, 4, 9, 20, 8 spells E, D, I, T, H.",
+       clue:"Edith Wren, Lady Wren's own niece. On the back of the card, in her hand: 'Hidden in the washroom. I am full of holes, yet I hold water.'"},
+      {scene:"You hurry to the washroom of the third carriage. The card's riddle is all you have to go on.",
+       q:"I am full of holes, yet I hold water. What am I?",
+       a:["sponge","a sponge"], h:["You use me in the bath.","I am soft and absorbent."],
+       x:"A sponge is full of holes but holds water.",
+       clue:"The pearls, wrapped in a sponge bag."}
+    ],
+    outro:"Edith confesses at Harrowgate station. She owed a gambling debt and thought nobody would search a washroom. The constable takes her statement, and Lady Wren has her pearls back before dawn."
+  },
+  {
+    id:"clock", title:"The Clockmaker's Safe", level:"Hard", diff:3,
+    blurb:"Orin Pell left his shop to his apprentice, on one condition: open the safe.",
+    intro:"Clockmaker Orin Pell died last week. His will leaves the shop and everything in it to his apprentice, on one condition: the safe in the back room must be opened with no tools but wits.\n\nThe only clue is a card propped against a cuckoo clock.",
+    steps:[
+      {scene:"The card on the workbench carries an old Victorian riddle in Orin's hand.",
+       q:"'I am taken from a mine and shut in a wooden case, from which I am never released, and yet I am used by almost every person.' What am I?",
+       a:["pencil lead","lead","graphite","pencil","a pencil","pencil leads"], h:["Think of something you write with.","The wooden case is the clue. It is not a pen."],
+       x:"Pencil lead is mined as graphite and sealed inside a wooden pencil.",
+       clue:"A pencil stub under the workbench has words written along its side: A watch keeps ticking."},
+      {scene:"The safe has a four-digit lock. Orin's notebook says: 'My codes are never numbers. They are words, counted.'",
+       q:"Count the letters in each word of the pencil's sentence, in order, to make the code.", code:"A watch keeps ticking",
+       a:["1557","1 5 5 7"], h:["The word A is one letter long.","The word WATCH has 5 letters."],
+       x:"A (1), watch (5), keeps (5), ticking (7): 1557.",
+       clue:"The outer door opens onto an inner drawer. It is sealed by a card with a number trick."},
+      {scene:"The inner drawer will not open until you answer the trick on the card.",
+       q:"Pick any number. Double it, add 6, halve the result, then subtract the number you started with. What do you end with?",
+       a:["3","three"], h:["Try it with 4: double is 8, plus 6 is 14, half is 7, minus 4 is 3.","Now try it with 10."],
+       x:"Whatever you pick, (2n + 6) / 2 - n is always 3.",
+       clue:"The drawer slides open. Inside is a brass key on a tag with one word scratched in mirror writing: DNUOR."},
+      {scene:"The tag's word was scratched backwards. The key must belong to something with that name.",
+       q:"Read the tag the right way round. What word does DNUOR spell?", code:"DNUOR",
+       a:["round"], h:["Read the letters from right to left."],
+       x:"DNUOR reversed is ROUND.",
+       clue:"A round brass cabinet above the clock bench opens with the key. Inside is a velvet box and a card: 'The last lock listens for something with a head and a tail but no body.'"},
+      {scene:"The velvet box is held shut by a single word-lock.",
+       q:"What has a head and a tail but no body?",
+       a:["coin","a coin"], h:["You can flip it.","It is worth money."],
+       x:"A coin has a head and a tail, but no body.",
+       clue:"Click. Inside lies Orin's masterpiece, a pocket watch, and a note: 'For the apprentice who looked closely.'"}
+    ],
+    outro:"The pocket watch is Orin's finest work, and the shop is yours. Every clue he left taught you how he thought: slowly, one word at a time."
+  }
+];
+/* ---------- pure logic: answer checking and puzzle generators ---------- */
+function mulberry(seed){
+  let a = seed >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const randInt = (r, a, b) => a + Math.floor(r() * (b - a + 1));
+const pick = (r, list) => list[Math.floor(r() * list.length)];
+
+function norm(s){
+  return String(s).toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[’']/g, "")
+    .replace(/(\d),(\d)/g, "$1$2")
+    .replace(/[^a-z0-9. ]+/g, " ")
+    .replace(/(?<!\d)\.|\.(?!\d)/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+const stripArticle = s => s.replace(/^(a|an|the|your|my|its) /, "");
+function lev(a, b){
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  const d = [];
+  for (let i = 0; i <= a.length; i++) d[i] = [i];
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+function oneSwap(a, b){
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length - 1; i++){
+    if (a[i] !== b[i]) return a[i] === b[i+1] && a[i+1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
+  }
+  return false;
+}
+function checkAnswer(input, answers){
+  const n = norm(input);
+  if (!n) return false;
+  const s = stripArticle(n);
+  for (const raw of answers){
+    const a = norm(raw), as = stripArticle(a);
+    if (n === a || s === as) return true;
+    if (as.length >= 5 && (" " + n + " ").includes(" " + as + " ")) return true;
+    if (as.length >= 6 && /^[a-z ]+$/.test(as) && (lev(s, as) <= 1 || oneSwap(s, as))) return true;
+    if (as.length >= 4 && /^[a-z]+$/.test(as) && (s.replace(/s$/, "") === as.replace(/s$/, ""))) return true;
+  }
+  return false;
+}
+function answerPattern(a){
+  a = String(a);
+  if (/^[0-9.]+$/.test(a)) return "The answer is a number with " + a.length + " digit" + (a.length > 1 ? "s" : "") + ".";
+  if (/^[A-Za-z ]+$/.test(a)){
+    const w = a.trim().split(/\s+/);
+    if (w.length === 1 && w[0].length <= 1) return "The answer is a single letter.";
+    return "It starts with " + a[0].toUpperCase() + " and has " + w.map(x => x.length).join(" + ") + " letters.";
+  }
+  return "";
+}
+
+const WORDS = ["lantern","harbor","puzzle","whisper","compass","mystery","shadow","secret","garden","candle","mirror","thunder","anchor","forest","castle","window","market","rocket","island","silver","velvet","violin","winter","summer","bridge","dragon","pirate","meadow","copper","planet","ticket","jungle","marble","pepper","ribbon","saddle","temple","tunnel","wizard","yellow","zipper","basket","butter","cactus","donkey","feather","guitar","hammer","jacket","kitten","ladder","magnet","napkin","oyster","parrot","quiver","rabbit","sailor","turtle","umpire","valley","walnut","yogurt","blanket","cinema","desert","engine","falcon","goblin","hunter","jigsaw","kettle","locket","mitten","nectar","orchid","pillow","quartz","ripple","spider","thistle","uniform","voyage","whistle","pocket","rubber","saucer","trophy","violet","window"];
+const WORD_POOL = Array.from(new Set(WORDS));
+const FRUIT = ["apple","pear","plum","lemon","melon","banana","mango","kiwi","date","fig","lime","orange"];
+
+function caesar(s, k){
+  return s.replace(/[a-z]/gi, c => {
+    const b = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((((c.charCodeAt(0) - b + k) % 26) + 26) % 26 + b);
+  });
+}
+function plural(n, w){ return n === 1 ? w : w + "s"; }
+
+function genSeq(n){
+  const r = mulberry(n * 7919 + 11), k = randInt(r, 0, 5), L = 6;
+  let arr = [], rule, d;
+  if (k === 0){
+    const a = randInt(r, 1, 120), s = randInt(r, 2, 45);
+    for (let i = 0; i < L; i++) arr.push(a + s * i);
+    rule = "Add " + s + " each time."; d = 1;
+  } else if (k === 1){
+    const a = randInt(r, 1, 9), m = randInt(r, 2, 4), c = randInt(r, 0, 6);
+    let v = a; for (let i = 0; i < L; i++){ arr.push(v); v = v * m + c; }
+    rule = c ? "Multiply by " + m + ", then add " + c + "." : "Multiply by " + m + " each time."; d = 2;
+  } else if (k === 2){
+    const a = randInt(r, 1, 14), add = randInt(r, 0, 9);
+    for (let i = 0; i < L; i++) arr.push((a + i) * (a + i) + add);
+    rule = "These are square numbers (" + a + "², " + (a+1) + "², " + (a+2) + "² ...)" + (add ? " plus " + add : "") + "."; d = 2;
+  } else if (k === 3){
+    const p = randInt(r, 1, 19), q = randInt(r, 1, 19), a = randInt(r, 1, 60);
+    let v = a; for (let i = 0; i < L; i++){ arr.push(v); v += (i % 2 === 0 ? p : q); }
+    rule = "Add " + p + ", then add " + q + ", and repeat."; d = 2;
+  } else if (k === 4){
+    let x = randInt(r, 1, 9), y = randInt(r, 2, 12);
+    arr = [x, y]; while (arr.length < L) arr.push(arr[arr.length-1] + arr[arr.length-2]);
+    rule = "Each number is the sum of the two before it."; d = 3;
+  } else {
+    const a = randInt(r, 1, 30), s = randInt(r, 1, 6);
+    let v = a; for (let i = 0; i < L; i++){ arr.push(v); v += s + i; }
+    rule = "The gaps grow: +" + s + ", +" + (s+1) + ", +" + (s+2) + ", and so on."; d = 3;
+  }
+  const ans = arr.pop();
+  return {label:"Number chain #" + n, d, q:"What number comes next?", code:arr.join(",  ") + ",  ?",
+    a:[String(ans)], h:["Look at the gaps between neighbouring numbers.","Check whether each number comes from adding, multiplying, or combining the ones before it."],
+    x:rule + " The next number is " + ans + "."};
+}
+
+function genCipher(n){
+  const r = mulberry(n * 104729 + 3);
+  const w1 = pick(r, WORD_POOL); let w2 = pick(r, WORD_POOL); while (w2 === w1) w2 = pick(r, WORD_POOL);
+  const s = randInt(r, 1, 12), hard = n % 3 === 0, phrase = w1 + " " + w2;
+  const enc = caesar(phrase, s).toUpperCase();
+  return {label:"Code breaker #" + n, d: hard ? 3 : (s <= 4 ? 1 : 2),
+    q: hard ? "Every letter has been moved forward by the same number of places. What are the two words?"
+            : "Every letter has been moved forward " + s + " place" + (s > 1 ? "s" : "") + " in the alphabet. What are the two words?",
+    code: enc, a:[phrase, w1 + w2],
+    h: hard ? ["The shift is somewhere between 1 and 12.","Try the shortest word first, and test each shift."]
+            : ["Move each letter back " + s + " place" + (s > 1 ? "s" : "") + ", so " + enc[0] + " becomes " + caesar(enc[0].toLowerCase(), -s).toUpperCase() + ".","The first word has " + w1.length + " letters."],
+    x: enc + " shifted back by " + s + " is " + phrase.toUpperCase() + "."};
+}
+
+function genJumble(n){
+  const r = mulberry(n * 15485863 + 5);
+  const w1 = pick(r, WORD_POOL); let w2 = pick(r, WORD_POOL); while (w2 === w1) w2 = pick(r, WORD_POOL);
+  const shuffle = w => {
+    let out = w;
+    for (let t = 0; t < 12 && out === w; t++){
+      const a = w.split("");
+      for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); const tmp = a[i]; a[i] = a[j]; a[j] = tmp; }
+      out = a.join("");
+    }
+    return out;
+  };
+  const sort = w => w.split("").sort().join("");
+  const anag = w => WORD_POOL.filter(x => sort(x) === sort(w));
+  const combos = [];
+  anag(w1).forEach(a => anag(w2).forEach(b => { combos.push(a + " " + b); combos.push(a + b); }));
+  return {label:"Word jumble #" + n, d:2, q:"Two words, each with its letters shuffled. Put them back in order.",
+    code: shuffle(w1).toUpperCase().split("").join(" ") + "      " + shuffle(w2).toUpperCase().split("").join(" "),
+    a: combos, h:["The first word has " + w1.length + " letters and the second has " + w2.length + ".","The first word starts with " + w1[0].toUpperCase() + " and the second with " + w2[0].toUpperCase() + "."],
+    x:"The words are " + w1.toUpperCase() + " and " + w2.toUpperCase() + "."};
+}
+
+function genMath(n){
+  const r = mulberry(n * 32452843 + 9), t = randInt(r, 0, 2);
+  if (t === 0){
+    const x = randInt(r, 2, 40), m = randInt(r, 2, 12), k = randInt(r, 1, 60), R = x * m + k;
+    return {label:"Brain math #" + n, d:1, q:"I am thinking of a number. I multiply it by " + m + " and add " + k + ". I get " + R + ". What is my number?",
+      a:[String(x)], h:["Undo the last step first.","Take " + k + " away from " + R + ", then divide."], x:"(" + R + " - " + k + ") / " + m + " = " + x + "."};
+  }
+  if (t === 1){
+    const x = randInt(r, 2, 90), A = randInt(r, 1, 40), R = (x + A) * 2;
+    return {label:"Brain math #" + n, d:2, q:"I add " + A + " to my number, then double it. The result is " + R + ". What is my number?",
+      a:[String(x)], h:["Work backwards: undo the doubling first.","Half of " + R + " is " + (R / 2) + "."], x:R + " / 2 - " + A + " = " + x + "."};
+  }
+  const A = 2 * randInt(r, 1, 25), x = randInt(r, A / 2 + 1, A / 2 + 60), R = x - A / 2;
+  return {label:"Brain math #" + n, d:3, q:"I double my number, take away " + A + ", then halve the result. I get " + R + ". What is my number?",
+    a:[String(x)], h:["Work backwards: undo the halving first.","Double " + R + " is " + (2 * R) + "."], x:"(2 x " + x + " - " + A + ") / 2 = " + R + "."};
+}
+
+function genMarket(n){
+  const r = mulberry(n * 49979687 + 13), v = randInt(r, 0, 2);
+  const a = pick(r, FRUIT); let b = pick(r, FRUIT); while (b === a) b = pick(r, FRUIT);
+  const p = randInt(r, 2, 15);
+  if (v === 0){
+    const m = randInt(r, 2, 6), c = randInt(r, 2, 9), ans = c * m * p;
+    return {label:"Market puzzle #" + n, d:2, q:"A " + a + " costs $" + p + ". A " + b + " costs " + m + " times as much as a " + a + ". How much do " + c + " " + b + "s cost, in dollars?",
+      a:[String(ans)], h:["First find the price of one " + b + ".","One " + b + " costs " + m + " x " + p + "."], x:"One " + b + " is $" + (m * p) + ", so " + c + " cost $" + ans + "."};
+  }
+  if (v === 1){
+    const c = randInt(r, 2, 8), e = randInt(r, 2, 8), q = randInt(r, 2, 12), T = c * p + e * q;
+    return {label:"Market puzzle #" + n, d:3, q:c + " " + plural(c, a) + " and " + e + " " + plural(e, b) + " cost $" + T + " in total. Each " + a + " costs $" + p + ". How many dollars does one " + b + " cost?",
+      a:[String(q)], h:["Find what the " + plural(c, a) + " cost on their own, then take that from the total.","The " + plural(c, a) + " cost " + c + " x " + p + " = " + (c * p) + "."], x:"$" + T + " - $" + (c * p) + " = $" + (e * q) + " for " + e + " " + plural(e, b) + ", so one costs $" + q + "."};
+  }
+  const c = randInt(r, 2, 9), tot = c * p, bill = Math.ceil((tot + 1) / 10) * 10;
+  return {label:"Market puzzle #" + n, d:1, q:"I buy " + c + " " + plural(c, a) + " at $" + p + " each and pay with a $" + bill + " note. How many dollars of change do I get?",
+    a:[String(bill - tot)], h:["First find the total cost.","The total is " + c + " x " + p + " = " + tot + "."], x:"$" + bill + " - $" + tot + " = $" + (bill - tot) + "."};
+}
+
+const VAULT = {
+  seq:    {name:"Number chains", blurb:"Spot the rule and find the next number.", fn:genSeq},
+  cipher: {name:"Code breakers", blurb:"Crack a shifted two-word message.",      fn:genCipher},
+  jumble: {name:"Word jumbles",  blurb:"Unscramble two shuffled words.",          fn:genJumble},
+  math:   {name:"Brain math",    blurb:"Work backwards to the secret number.",   fn:genMath},
+  market: {name:"Market puzzles",blurb:"Prices, totals and change.",             fn:genMarket}
+};
+const VAULT_MAX = 9999;
+/* ---------- app: state, scoring, views ---------- */
+const KEY = "cluehouse.v1";
+let save = {solved:{}, points:0, streak:0, lastDaily:"", names:["Player 1","Player 2"], cases:{}, mode:"solo"};
+try { const raw = localStorage.getItem(KEY); if (raw) save = Object.assign(save, JSON.parse(raw)); } catch (e) {}
+const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} };
+const S = {mode:save.mode || "solo", names:[save.names[0] || "Player 1", save.names[1] || "Player 2"], scores:[0,0], team:0, turn:0};
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const shuffleArr = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const dayKey = (off = 0) => new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + off * 86400000).toISOString().slice(0, 10);
+const dayNum = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+const streakNow = () => (save.lastDaily === dayKey(0) || save.lastDaily === dayKey(-1)) ? save.streak : 0;
+
+function ad(kind, id){
+  const rect = kind === "rect";
+  return '<aside class="ad ' + (rect ? "rect" : "") + '" aria-label="Advertisement"><small>Advertisement</small><div class="ad-box" data-ad-slot="' + id + '">Ad space ' + (rect ? "300 x 250" : "728 x 90") + "</div></aside>";
+}
+
+/* scoreboard */
+function renderBar(){
+  let h = "";
+  if (S.mode === "solo") h = '<div class="score p1 on"><i></i><b>' + esc(S.names[0]) + "</b><span>" + S.scores[0] + " pts</span></div>";
+  else if (S.mode === "team") h = '<div class="score team on"><i></i><b>' + esc(S.names[0]) + " + " + esc(S.names[1]) + "</b><span>" + S.team + " pts together</span></div>";
+  else h = [0, 1].map(i => '<div class="score p' + (i + 1) + (S.turn === i ? " on" : "") + '"><i></i><b>' + esc(S.names[i]) + "</b><span>" + S.scores[i] + " pts</span></div>").join("");
+  const st = streakNow();
+  h += '<div class="stat">Daily streak: ' + st + " day" + (st === 1 ? "" : "s") + "</div>";
+  $("#bar").innerHTML = h;
+}
+function award(pts){
+  if (S.mode === "team") S.team += pts; else S.scores[S.mode === "solo" ? 0 : S.turn] += pts;
+  save.points += pts; persist(); renderBar();
+}
+function passTurn(){ if (S.mode === "turns") S.turn = 1 - S.turn; renderBar(); }
+function who(){
+  if (S.mode === "turns") return {text:S.names[S.turn] + "'s turn", cls:S.turn ? "p2" : "p1"};
+  if (S.mode === "team") return {text:"Solving together", cls:""};
+  return {text:"", cls:""};
+}
+
+/* the puzzle runner: one puzzle, hints, scoring, next button */
+function runPuzzle(host, p, o){
+  o = o || {};
+  let hintsUsed = 0, wrong = 0, finished = false;
+  const hints = (p.h || []).slice();
+  const pat = answerPattern(p.a[0]); if (pat) hints.push(pat);
+  const w = who(), base = [0, 10, 20, 30][p.d] || 10;
+  host.innerHTML =
+    '<article class="card puzzle">' +
+      '<div class="meta"><span class="tag">' + esc(p.label) + '</span><span class="diff" title="Difficulty ' + p.d + ' of 3">' + "●".repeat(p.d) + "○".repeat(3 - p.d) + "</span>" +
+      (w.text ? '<span class="who ' + w.cls + '">' + esc(w.text) + "</span>" : "") + "</div>" +
+      '<h2 class="q">' + esc(p.q) + "</h2>" +
+      (p.code ? '<div class="code">' + esc(p.code) + "</div>" : "") +
+      '<form class="ans" autocomplete="off"><label class="sr" for="answer">Your answer</label>' +
+        '<input id="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Type your answer">' +
+        '<button class="btn primary" type="submit">Check</button></form>' +
+      '<div class="msg info" role="status" aria-live="polite"></div>' +
+      '<ol class="hintlist" hidden></ol>' +
+      '<div class="row"><button class="btn small ghost" type="button" data-act="hint"></button><button class="btn small ghost" type="button" data-act="give">Reveal answer</button></div>' +
+      '<div class="after" hidden></div>' +
+    "</article>";
+  const form = $("form", host), input = $("#answer", host), msg = $(".msg", host), hl = $(".hintlist", host), after = $(".after", host);
+  const hintBtn = $('[data-act="hint"]', host), giveBtn = $('[data-act="give"]', host), checkBtn = $('button[type="submit"]', host);
+  const setHintBtn = () => {
+    if (hintsUsed >= hints.length){ hintBtn.disabled = true; hintBtn.textContent = "No more hints"; }
+    else hintBtn.textContent = "Hint (-4 pts) · " + (hints.length - hintsUsed) + " left";
+  };
+  setHintBtn();
+
+  function finish(solved){
+    finished = true;
+    input.disabled = true; checkBtn.disabled = true; hintBtn.disabled = true; giveBtn.disabled = true;
+    let pts = 0;
+    if (solved){
+      pts = Math.max(3, base - 4 * hintsUsed - 2 * wrong);
+      award(pts);
+      msg.className = "msg good"; msg.textContent = "Correct! +" + pts + " points";
+      if (o.id){ save.solved[o.id] = 1; persist(); }
+    } else {
+      msg.className = "msg info"; msg.textContent = "The answer was: " + p.a[0];
+    }
+    let html = "";
+    if (p.x) html += '<div class="reveal"><span class="eyebrow">Why</span>' + esc(p.x) + "</div>";
+    if (o.reveal) html += '<div class="reveal"><span class="eyebrow">New clue for your notebook</span>' + esc(o.reveal) + "</div>";
+    const nextTxt = (o.nextLabel || "Next") + (S.mode === "turns" ? " · " + esc(S.names[1 - S.turn]) + " is up" : "");
+    html += '<div class="row"><button class="btn primary" type="button" data-act="next">' + nextTxt + "</button></div>";
+    after.innerHTML = html; after.hidden = false;
+    const nb = $('[data-act="next"]', after);
+    nb.addEventListener("click", () => { passTurn(); if (o.onDone) o.onDone({solved, pts}); });
+    nb.focus({preventScroll:false});
+  }
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (finished) return;
+    const v = input.value;
+    if (!v.trim()) return;
+    if (checkAnswer(v, p.a)) finish(true);
+    else {
+      wrong++;
+      msg.className = "msg bad";
+      msg.textContent = ["Not quite. Try again.", "Not that one. Read the wording again.", "Still no. A hint costs 4 points."][Math.min(wrong - 1, 2)];
+      input.select();
+    }
+  });
+  hintBtn.addEventListener("click", () => {
+    if (finished || hintsUsed >= hints.length) return;
+    hl.hidden = false;
+    const li = document.createElement("li"); li.textContent = hints[hintsUsed]; hl.appendChild(li);
+    hintsUsed++; setHintBtn();
+  });
+  giveBtn.addEventListener("click", () => { if (!finished) finish(false); });
+  if (window.matchMedia && matchMedia("(pointer:fine)").matches) input.focus({preventScroll:true});
+}
+
+const riddlePuzzle = (r, i) => ({id:"q" + i, label:r[0], d:r[1], q:r[2], a:r[3], h:r[4], x:r[5]});
+
+/* ---------- views ---------- */
+function viewHome(){
+  const solvedQ = Object.keys(save.solved).filter(k => k[0] === "q").length;
+  $("#view").innerHTML =
+    '<div class="stack">' +
+      '<section class="hero"><p class="eyebrow">Riddles and mysteries for one or two</p>' +
+        "<h1>Solve it alone, or lean in together.</h1>" +
+        "<p>Quick riddles for a spare minute, multi-step case files for a whole evening, and a vault of numbered puzzles you can race a friend on.</p></section>" +
+      '<section class="card stack"><h2>Who is playing?</h2>' +
+        '<div class="modes">' +
+          '<button class="mode" type="button" data-mode="solo" aria-pressed="' + (S.mode === "solo") + '"><b>Solo</b><span>Just you. Your score, your pace.</span></button>' +
+          '<button class="mode" type="button" data-mode="turns" aria-pressed="' + (S.mode === "turns") + '"><b>Take turns</b><span>Two players, one screen. Riddles alternate and scores stay separate.</span></button>' +
+          '<button class="mode" type="button" data-mode="team" aria-pressed="' + (S.mode === "team") + '"><b>Team up</b><span>Solve together and build one shared score.</span></button>' +
+        "</div>" +
+        '<div class="row"><div class="field"><label for="name1">Player 1</label><input id="name1" type="text" maxlength="16" value="' + esc(S.names[0]) + '"></div>' +
+        '<div class="field" id="f2"' + (S.mode === "solo" ? " hidden" : "") + '><label for="name2">Player 2</label><input id="name2" type="text" maxlength="16" value="' + esc(S.names[1]) + '"></div>' +
+        '<button class="btn ghost" type="button" id="resetScores">Reset scores</button></div>' +
+      "</section>" +
+      '<div class="tiles">' +
+        '<a class="tile" href="#quick" data-nav="quick"><span class="eyebrow">' + RIDDLES.length + " riddles</span><h3>Quick riddles</h3><p>Rounds of ten across classic, wordplay, logic, math and more. You have solved " + solvedQ + ".</p></a>" +
+        '<a class="tile" href="#cases" data-nav="cases"><span class="eyebrow">' + CASES.length + " mysteries</span><h3>Case files</h3><p>Solve a puzzle, earn a clue, and use it in the next one until the case cracks.</p></a>" +
+        '<a class="tile" href="#vault" data-nav="vault"><span class="eyebrow">5 types, 1 to 9,999</span><h3>Puzzle vault</h3><p>Numbered puzzles that are the same for everyone. Send a number, race a friend.</p></a>' +
+        '<a class="tile" href="#daily" data-nav="daily"><span class="eyebrow">New every day</span><h3>Daily riddle</h3><p>One riddle a day. Solve it to grow your streak.</p></a>' +
+      "</div>" +
+      ad("banner", "home-bottom") +
+    "</div>";
+  $$(".mode").forEach(b => b.addEventListener("click", () => {
+    S.mode = b.dataset.mode; save.mode = S.mode; S.turn = 0; persist();
+    $$(".mode").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    $("#f2").hidden = S.mode === "solo"; renderBar();
+  }));
+  const setName = (i, el) => el.addEventListener("input", () => { S.names[i] = el.value.trim() || "Player " + (i + 1); save.names = S.names.slice(); persist(); renderBar(); });
+  setName(0, $("#name1")); setName(1, $("#name2"));
+  $("#resetScores").addEventListener("click", () => { S.scores = [0, 0]; S.team = 0; S.turn = 0; renderBar(); });
+}
+
+const qState = {cat:"All", diff:0};
+function viewQuick(){
+  const cats = ["All"].concat(Array.from(new Set(RIDDLES.map(r => r[0]))));
+  const diffs = [[0, "Any"], [1, "Easy"], [2, "Medium"], [3, "Hard"]];
+  const poolOf = () => RIDDLES.map(riddlePuzzle).filter(p => (qState.cat === "All" || p.label === qState.cat) && (!qState.diff || p.d === qState.diff));
+  const solvedTotal = Object.keys(save.solved).filter(k => k[0] === "q").length;
+  $("#view").innerHTML =
+    '<div class="stack"><div><p class="eyebrow">Quick riddles</p><h2>Pick a flavour, play a round of ten.</h2></div>' +
+    '<section class="card stack">' +
+      '<div><span class="eyebrow">Category</span><div class="pills" id="cats" style="margin-top:8px">' + cats.map(c => '<button class="pill" type="button" data-cat="' + c + '" aria-pressed="' + (qState.cat === c) + '">' + c + "</button>").join("") + "</div></div>" +
+      '<div><span class="eyebrow">Difficulty</span><div class="pills" id="diffs" style="margin-top:8px">' + diffs.map(d => '<button class="pill" type="button" data-diff="' + d[0] + '" aria-pressed="' + (qState.diff === d[0]) + '">' + d[1] + "</button>").join("") + "</div></div>" +
+      '<div class="row"><button class="btn primary" type="button" id="startRound"></button><span class="muted" id="poolInfo"></span></div>' +
+    "</section>" +
+    '<p class="muted">You have solved ' + solvedTotal + " of " + RIDDLES.length + " riddles. Unsolved ones come first in every round.</p>" + ad("banner", "quick-bottom") + "</div>";
+  const refresh = () => {
+    const n = poolOf().length;
+    $("#poolInfo").textContent = n + " riddle" + (n === 1 ? "" : "s") + " match";
+    $("#startRound").textContent = "Start a round of " + Math.min(10, n);
+    $("#startRound").disabled = n === 0;
+    $$("#cats .pill").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cat === qState.cat)));
+    $$("#diffs .pill").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.diff === qState.diff)));
+  };
+  $$("#cats .pill").forEach(b => b.addEventListener("click", () => { qState.cat = b.dataset.cat; refresh(); }));
+  $$("#diffs .pill").forEach(b => b.addEventListener("click", () => { qState.diff = +b.dataset.diff; refresh(); }));
+  $("#startRound").addEventListener("click", () => {
+    const pool = poolOf();
+    const fresh = shuffleArr(pool.filter(p => !save.solved[p.id])), old = shuffleArr(pool.filter(p => save.solved[p.id]));
+    playRound(fresh.concat(old).slice(0, 10));
+  });
+  refresh();
+}
+function playRound(list){
+  let i = 0, got = 0, pts = 0;
+  const step = () => {
+    if (i >= list.length) return roundSummary(list.length, got, pts);
+    $("#view").innerHTML = '<div class="stack"><div class="row" style="justify-content:space-between"><span class="eyebrow">Riddle ' + (i + 1) + " of " + list.length + '</span><button class="btn small ghost" type="button" id="endRound">End round</button></div><div id="host"></div></div>';
+    $("#endRound").addEventListener("click", () => roundSummary(i, got, pts));
+    runPuzzle($("#host"), list[i], {id:list[i].id, nextLabel:i === list.length - 1 ? "See results" : "Next riddle", onDone:r => { if (r.solved) got++; pts += r.pts; i++; step(); }});
+  };
+  step();
+}
+function roundSummary(total, got, pts){
+  $("#view").innerHTML =
+    '<div class="stack"><section class="card stack"><p class="eyebrow">Round complete</p><div class="bignum">' + got + " / " + total + '</div>' +
+    '<p class="lede">' + (got === total && total ? "A clean sweep." : got ? "Nice work. " + got + " solved without giving up." : "Tough round. The riddles will still be here.") + " You earned " + pts + " points.</p>" +
+    '<div class="row"><button class="btn primary" type="button" id="again">Another round</button><a class="btn" href="#home" data-nav="home">Home</a></div></section>' + ad("rect", "round-summary") + "</div>";
+  $("#again").addEventListener("click", viewQuick);
+}
+
+function viewCases(){
+  $("#view").innerHTML = '<div class="stack"><div><p class="eyebrow">Case files</p><h2>Every answer is a clue for the next puzzle.</h2></div><div class="cases">' +
+    CASES.map(c => {
+      const done = save.cases[c.id] || 0, n = c.steps.length;
+      const label = done >= n ? "Replay" : done ? "Continue" : "Open the file";
+      return '<article class="card stack"><div class="row" style="justify-content:space-between"><span class="eyebrow">' + c.level + " · " + n + ' steps</span><span class="diff">' + "●".repeat(c.diff) + "○".repeat(3 - c.diff) + "</span></div>" +
+        "<h3 style=\"font-size:1.35rem\">" + esc(c.title) + '</h3><p class="muted" style="margin:0">' + esc(c.blurb) + "</p>" +
+        '<div class="dots">' + c.steps.map((_, i) => '<i class="' + (i < done ? "done" : "") + '"></i>').join("") + "</div>" +
+        '<button class="btn primary" type="button" data-case="' + c.id + '">' + label + "</button></article>";
+    }).join("") + "</div>" + ad("banner", "cases-bottom") + "</div>";
+  $$("[data-case]").forEach(b => b.addEventListener("click", () => {
+    const c = CASES.find(x => x.id === b.dataset.case);
+    if ((save.cases[c.id] || 0) >= c.steps.length){ save.cases[c.id] = 0; persist(); }
+    caseIntro(c);
+  }));
+}
+function caseIntro(c){
+  const start = save.cases[c.id] || 0;
+  if (start > 0) return playStep(c, start);
+  $("#view").innerHTML = '<div class="stack"><a class="muted" href="#cases" data-nav="cases">← All case files</a><section class="card stack"><p class="eyebrow">' + c.level + " case</p><h2>" + esc(c.title) + '</h2><div class="scene">' + esc(c.intro) + '</div><div class="row"><button class="btn primary" type="button" id="go">Begin</button></div></section></div>';
+  $("#go").addEventListener("click", () => playStep(c, 0));
+}
+function playStep(c, i){
+  const n = c.steps.length;
+  if (i >= n) return caseDone(c);
+  const st = c.steps[i];
+  const notes = c.steps.slice(0, i).map(s => "<li>" + esc(s.clue) + "</li>").join("");
+  $("#view").innerHTML =
+    '<div class="stack"><div class="casehead"><div><a class="muted" href="#cases" data-nav="cases">← All case files</a><h2>' + esc(c.title) + '</h2></div>' +
+    '<div class="dots" aria-label="Step ' + (i + 1) + " of " + n + '">' + c.steps.map((_, k) => '<i class="' + (k < i ? "done" : k === i ? "now" : "") + '"></i>').join("") + "</div></div>" +
+    '<div class="casegrid"><div class="stack"><div class="scene">' + esc(st.scene) + '</div><div id="host"></div></div>' +
+    '<aside class="card notebook"><h3>Notebook</h3><p class="muted" style="margin:4px 0 0;font-size:.88rem">Clues you have found so far.</p>' +
+    (notes ? "<ol>" + notes + "</ol>" : '<p class="muted" style="margin:10px 0 0;font-size:.9rem">Nothing yet. Solve the first puzzle.</p>') + "</aside></div></div>";
+  runPuzzle($("#host"), {label:"Step " + (i + 1) + " of " + n, d:c.diff, q:st.q, code:st.code, a:st.a, h:st.h, x:st.x},
+    {id:"c-" + c.id + "-" + i, reveal:st.clue, nextLabel:i === n - 1 ? "Close the case" : "Next step",
+     onDone:() => { save.cases[c.id] = i + 1; persist(); playStep(c, i + 1); }});
+}
+function caseDone(c){
+  award(15);
+  $("#view").innerHTML = '<div class="stack"><section class="card stack"><p class="eyebrow">Case closed</p><h2>' + esc(c.title) + '</h2><div class="scene">' + esc(c.outro) + '</div><p class="muted" style="margin:0">Bonus for closing the case: +15 points.</p>' +
+    '<div class="row"><a class="btn primary" href="#cases" data-nav="cases">More case files</a><a class="btn" href="#home" data-nav="home">Home</a></div></section>' + ad("rect", "case-closed") + "</div>";
+}
+
+const vState = {type:"seq", count:0};
+function viewVault(){
+  const types = Object.keys(VAULT);
+  $("#view").innerHTML =
+    '<div class="stack"><div><p class="eyebrow">Puzzle vault</p><h2>Pick a number. Everyone who picks it gets the same puzzle.</h2></div>' +
+    '<section class="card stack"><div><span class="eyebrow">Type</span><div class="pills" id="vtypes" style="margin-top:8px">' + types.map(t => '<button class="pill" type="button" data-t="' + t + '" aria-pressed="' + (vState.type === t) + '">' + VAULT[t].name + "</button>").join("") + "</div>" +
+    '<p class="muted" id="vblurb" style="margin:10px 0 0"></p></div>' +
+    '<div class="row"><div class="field" style="flex:0 1 160px"><label for="vnum">Puzzle number (1 to ' + VAULT_MAX.toLocaleString("en-US") + ')</label><input id="vnum" type="number" min="1" max="' + VAULT_MAX + '" value="' + (1 + Math.floor(Math.random() * VAULT_MAX)) + '"></div>' +
+    '<button class="btn primary" type="button" id="vplay" style="align-self:flex-end">Play this number</button><button class="btn" type="button" id="vrand" style="align-self:flex-end">Random puzzle</button></div>' +
+    '<p class="muted" style="margin:0">Playing as a pair? Agree on a number, solve it separately, and compare who needed fewer hints.</p></section>' + ad("banner", "vault-bottom") + "</div>";
+  const blurb = () => { $("#vblurb").textContent = VAULT[vState.type].blurb; $$("#vtypes .pill").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === vState.type))); };
+  blurb();
+  $$("#vtypes .pill").forEach(b => b.addEventListener("click", () => { vState.type = b.dataset.t; blurb(); }));
+  const go = n => { n = Math.min(VAULT_MAX, Math.max(1, Math.floor(+n) || 1)); playVault(vState.type, n); };
+  $("#vplay").addEventListener("click", () => go($("#vnum").value));
+  $("#vrand").addEventListener("click", () => go(1 + Math.floor(Math.random() * VAULT_MAX)));
+}
+function playVault(type, n){
+  const p = VAULT[type].fn(n);
+  p.id = "v-" + type + "-" + n;
+  $("#view").innerHTML = '<div class="stack"><div class="row" style="justify-content:space-between"><span class="eyebrow">Puzzle vault · ' + esc(VAULT[type].name) + '</span><a class="btn small ghost" href="#vault" data-nav="vault">Back to the vault</a></div><div id="host"></div></div>';
+  runPuzzle($("#host"), p, {id:p.id, nextLabel:"Next puzzle", onDone:() => {
+    const next = n % VAULT_MAX + 1;
+    if (++vState.count % 4 === 0){
+      $("#view").innerHTML = '<div class="stack"><section class="card stack"><p class="eyebrow">Short break</p><h2>Four puzzles down.</h2><div class="row"><button class="btn primary" type="button" id="cont">Continue to #' + next + '</button><a class="btn" href="#vault" data-nav="vault">Back to the vault</a></div></section>' + ad("rect", "vault-break") + "</div>";
+      $("#cont").addEventListener("click", () => playVault(type, next));
+    } else playVault(type, next);
+  }});
+}
+
+function viewDaily(){
+  const today = dayKey(0), idx = Math.floor(mulberry(dayNum() * 2654435761 % 4294967296)() * RIDDLES.length);
+  const p = riddlePuzzle(RIDDLES[idx], idx); p.id = "daily-" + today; p.label = "Daily riddle · " + today;
+  const st = streakNow();
+  if (save.lastDaily === today){
+    $("#view").innerHTML = '<div class="stack"><section class="card stack"><p class="eyebrow">Daily riddle</p><div class="bignum">' + st + '</div><p class="lede">You solved today\'s riddle. That is a streak of ' + st + " day" + (st === 1 ? "" : "s") + ". A new riddle arrives tomorrow.</p>" +
+      '<div class="row"><a class="btn primary" href="#quick" data-nav="quick">Play quick riddles</a><a class="btn" href="#vault" data-nav="vault">Open the vault</a></div></section>' + ad("banner", "daily-done") + "</div>";
+    return;
+  }
+  $("#view").innerHTML = '<div class="stack"><div><p class="eyebrow">Daily riddle</p><h2>One riddle a day keeps the streak alive.</h2><p class="muted" style="margin:6px 0 0">Current streak: ' + st + ' day' + (st === 1 ? "" : "s") + '. Reveal the answer and the streak resets tomorrow.</p></div><div id="host"></div></div>';
+  runPuzzle($("#host"), p, {id:p.id, nextLabel:"Done", onDone:r => {
+    if (r.solved){ save.streak = (save.lastDaily === dayKey(-1)) ? save.streak + 1 : 1; save.lastDaily = today; persist(); }
+    renderBar(); location.hash = "#home";
+  }});
+}
+
+/* ---------- router ---------- */
+const VIEWS = {home:viewHome, quick:viewQuick, cases:viewCases, vault:viewVault, daily:viewDaily};
+function route(){
+  const h = (location.hash || "#home").slice(1), name = VIEWS[h] ? h : "home";
+  $$("#nav a").forEach(a => { if (a.dataset.nav === name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  VIEWS[name]();
+  renderBar();
+  window.scrollTo(0, 0);
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-nav]");
+  if (a && location.hash === "#" + a.dataset.nav){ e.preventDefault(); route(); }
+});
+window.addEventListener("hashchange", route);
+route();
+})();
+</script>
+
+</body>
+</html>
